@@ -1,0 +1,66 @@
+# ---- Python ----
+__pycache__/
+*.py[cod]
+*$py.class
+
+# ---- Virtual Environment ----
+venv/
+env/
+.venv/
+
+# ---- Environment Files ----
+# .env
+# .env.*
+# !.env.example  # keep example env file
+
+# ---- IDE / Editor Files ----
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# ---- OS Files ----
+.DS_Store
+Thumbs.db
+
+# ---- Bytecode & Cache ----
+*.log
+*.pot
+*.pyc
+*.pyo
+*.pyd
+*.db
+*.sqlite3
+
+# ---- Compiled / Distribution ----
+build/
+dist/
+*.egg-info/
+*.egg
+
+# ---- FastAPI / Uvicorn logs ----
+*.pid
+*.log
+*.json
+
+# ---- Test / Coverage ----
+.coverage
+htmlcov/
+.pytest_cache/
+.tox/
+.nox/
+.cache/
+coverage.xml
+
+# ---- Temporary files ----
+tmp/
+temp/
+*.bak
+*.swp
+*.swo
+
+# ---- Project-specific ----
+# files/
+static/uploads/
+media/
+__init__.pyc

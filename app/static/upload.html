@@ -1,0 +1,30 @@
+<!doctype html>
+<html>
+
+<head>
+    <title>Upload Document</title>
+</head>
+
+<body>
+    <h2>Upload Document (You must attach Authorization: Bearer &lt;token&gt; in requests)</h2>
+    <form id="uploadForm">
+        Doc Type: <input name="doc_type" value="aadhaar"><br>
+        File: <input type="file" id="fileInput"><br>
+        <button type="button" onclick="upload()">Upload</button>
+    </form>
+    <script>
+        async function upload() {
+            const token = prompt("Enter your Bearer token (from login):");
+            if (!token) { alert("Need token"); return; }
+            const fileInput = document.getElementById("fileInput");
+            const fd = new FormData();
+            fd.append("doc_type", document.querySelector("input[name=doc_type]").value);
+            fd.append("file", fileInput.files[0]);
+            const res = await fetch("/api/documents", { method: "POST", headers: { "Authorization": "Bearer " + token }, body: fd });
+            const data = await res.json();
+            alert(JSON.stringify(data));
+        }
+    </script>
+</body>
+
+</html>
