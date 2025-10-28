@@ -2,7 +2,7 @@ from pydantic import BaseModel
 from typing import Optional, List
 
 
-class UserBase(BaseModel):
+class UserCreate(BaseModel):
     email: str
     password: str
     full_name: Optional[str] = None
@@ -11,17 +11,17 @@ class UserBase(BaseModel):
 class UserOut(BaseModel):
     id: int
     email: str
-    full_name: Optional[str] = None
+    full_name: Optional[str]
 
     class Config:
         orm_mode = True
 
 
-class tocken(BaseModel):
+class Token(BaseModel):
     access_token: str
     token_type: str = "bearer"
 
 
-class VerificationRequestBase(BaseModel):
+class VerificationCreate(BaseModel):
     verifier_name: Optional[str]
-    requested_field: Optional[list[str]] = []
+    requested_fields: Optional[List[str]] = []

@@ -1,14 +1,15 @@
-from pydantic import BaseSettings
+from pydantic_settings import BaseSettings
 
 
 class Settings(BaseSettings):
-    SECRETE_KEY: str = "Naveen@123"
-    fernet_key: str = ""
-    access_token_expire_minutes: int = 60
-    base_url: str = "http://127.0.0.1:8000"
+    SECRET_KEY: str = "Naveen"
+    FERNET_KEY: str = ""
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 60
+    # change to laptop IP when testing on phone
+    BASE_URL: str = "http://127.0.0.1:8000"
 
     class Config:
-        env_file = "../.env"
+        env_file = ".env"
 
 
 settings = Settings()

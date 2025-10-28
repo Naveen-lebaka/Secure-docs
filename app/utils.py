@@ -12,16 +12,19 @@ if not os.path.exists(FILES_DIR):
 
 
 def get_fernet():
-    key = settings.fernet_key
+    key = settings.FERNET_KEY
     if not key:
+        # create key and store to file (first run)
         key = Fernet.generate_key().decode()
-        settings.fernet_key = key
+        # update environment variable file if present - but for simplicity we just set in settings object
+        settings.FERNET_KEY = key
+    # Fernet expects bytes
     return Fernet(key.encode())
 
 
-def encrypt_and_save_file(file_data: bytes, filename: str):
+def encrypt_and_save_file(file_bytes: bytes, filename: str):
     f = get_fernet()
-    token = f.encrypt(file_data)
+    token = f.encrypt(file_bytes)
     safe_name = filename
     path = os.path.join(FILES_DIR, safe_name + ".enc")
     with open(path, "wb") as fh:
