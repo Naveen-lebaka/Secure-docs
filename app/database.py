@@ -2,22 +2,24 @@
 from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
-import urllib.parse
+from .config import settings
+import os
 
-MYSQL_USER = "root"                    # replace with your user
-MYSQL_PASSWORD = "root123"  # replace with your password
-MYSQL_HOST = "localhost"
-MYSQL_PORT = "3306"
-MYSQL_DB = "secure_docs_db"
+# Build MySQL URL
+if settings.MYSQL_PASSWORD != "":
+    SQLALCHEMY_DATABASE_URL = (
+        f"mysql+pymysql://{settings.MYSQL_USER}:{settings.MYSQL_PASSWORD}"
+        f"@{settings.MYSQL_HOST}:{settings.MYSQL_PORT}/{settings.MYSQL_DB}"
+    )
+else:
+    # If no MySQL password set, fallback to sqlite for quick testing
+    SQLALCHEMY_DATABASE_URL = "sqlite:///./app.db"
 
-# URL encode password if it has special characters
-encoded_password = urllib.parse.quote_plus(MYSQL_PASSWORD)
-
-SQLALCHEMY_DATABASE_URL = (
-    f"mysql+pymysql://{MYSQL_USER}:{encoded_password}@{MYSQL_HOST}:{MYSQL_PORT}/{MYSQL_DB}"
+engine = create_engine(
+    SQLALCHEMY_DATABASE_URL,
+    pool_pre_ping=True,
+    connect_args={
+        "check_same_thread": False} if "sqlite" in SQLALCHEMY_DATABASE_URL else {}
 )
-
-engine = create_engine(SQLALCHEMY_DATABASE_URL, future=True)
-SessionLocal = sessionmaker(
-    autocommit=False, autoflush=False, bind=engine, future=True)
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()

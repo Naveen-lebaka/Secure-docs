@@ -1,16 +1,17 @@
+# app/crud.py
 from sqlalchemy.orm import Session
-from . import models, schemas
+from . import models
 import json
 from datetime import datetime, timedelta
 import secrets
 
 
 def create_user(db: Session, email: str, hashed_password: str, full_name=None):
-    user = models.user(
+    user = models.User(
         email=email, hashed_password=hashed_password, full_name=full_name)
     db.add(user)
     db.commit()
-    db.reference(user)
+    db.refresh(user)
     return user
 
 
@@ -18,8 +19,8 @@ def get_user_by_email(db: Session, email: str):
     return db.query(models.User).filter(models.User.email == email).first()
 
 
-def get_user(db: Session, User_id: int):
-    return db.query(models.User).filter(models.User.id == User_id).first()
+def get_user(db: Session, user_id: int):
+    return db.query(models.User).filter(models.User.id == user_id).first()
 
 
 def create_document(db: Session, user_id: int, doc_type: str, filename: str, storage_path: str):
@@ -31,14 +32,27 @@ def create_document(db: Session, user_id: int, doc_type: str, filename: str, sto
     return doc
 
 
+def create_document_for_verification(db: Session, verification_id: int, doc_type: str, filename: str, storage_path: str):
+    doc = models.Document(verification_request_id=verification_id,
+                          doc_type=doc_type, filename=filename, storage_path=storage_path)
+    db.add(doc)
+    db.commit()
+    db.refresh(doc)
+    return doc
+
+
 def list_documents_for_user(db: Session, user_id: int):
     return db.query(models.Document).filter(models.Document.user_id == user_id).all()
 
 
-def create_verificaton_token(db: Session, verifier_name: str, requested_fields):
-    token = secrets.token_urlsafe(32)
-    vr = models.VerificationRequest(token=token, verifier_name=verifier_name, requested_fields=json.dumps(
-        requested_fields or []), expires_at=datetime.utcnow() + timedelta(hours=24))
+def list_documents_for_verification(db: Session, verification_id: int):
+    return db.query(models.Document).filter(models.Document.verification_request_id == verification_id).all()
+
+
+def create_verification_request(db: Session, verifier_name: str, requested_fields):
+    token = secrets.token_urlsafe(16)
+    vr = models.VerificationRequest(token=token, verifier_name=verifier_name, requested_fields=json.dumps(requested_fields or []),
+                                    expires_at=(datetime.utcnow() + timedelta(hours=24)))
     db.add(vr)
     db.commit()
     db.refresh(vr)
