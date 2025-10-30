@@ -1,0 +1,82 @@
+<!-- app/templates/upload_mobile.html -->
+<!doctype html>
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <title>Upload Documents</title>
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+
+<body>
+    <div class="card">
+        <h2>Upload Documents</h2>
+        <p id="sessionInfo">Session: {{ session_id }}</p>
+        <div id="loopArea">
+            <p id="docTitle"></p>
+            <input id="fileInput" type="file" accept="image/*,application/pdf" />
+            <div style="margin-top:10px;">
+                <button id="uploadBtn" class="btn">Upload</button>
+            </div>
+            <div id="msg" style="color:red;margin-top:8px;"></div>
+        </div>
+        <div id="doneArea" style="display:none;">
+            <h3>All documents uploaded</h3>
+            <p>Thank you — verification will be processed.</p>
+        </div>
+    </div>
+
+    <script>
+        const sessionId = "{{ session_id }}";
+        const docs = ["Aadhaar", "PAN", "Passport", "Driving License", "Voter ID", "Education Certificate"];
+        let idx = 0;
+        const fileInput = document.getElementById("fileInput");
+        const docTitle = document.getElementById("docTitle");
+        const msg = document.getElementById("msg");
+
+        function showDoc() {
+            if (idx >= docs.length) {
+                document.getElementById("loopArea").style.display = "none";
+                document.getElementById("doneArea").style.display = "block";
+                return;
+            }
+            docTitle.textContent = `Upload: ${docs[idx]}`;
+            // set to accept camera on mobile
+            fileInput.setAttribute("accept", "image/*,application/pdf");
+            fileInput.setAttribute("capture", "environment");
+            fileInput.value = "";
+            msg.textContent = "";
+        }
+
+        document.getElementById("uploadBtn").addEventListener("click", async () => {
+            if (!fileInput.files || !fileInput.files[0]) {
+                msg.textContent = "Please choose a file or take a photo.";
+                return;
+            }
+            const file = fileInput.files[0];
+            // client-side checks (size)
+            if (file.size > 6 * 1024 * 1024) {
+                msg.textContent = "File too large (>6MB). Try smaller or crop photo.";
+                return;
+            }
+
+            const fd = new FormData();
+            fd.append("file", file);
+            fd.append("doc_type", docs[idx]);
+
+            const res = await fetch(`/upload_file/${sessionId}`, { method: "POST", body: fd });
+            const j = await res.json();
+            if (res.status !== 200) {
+                msg.textContent = j.detail || "Upload failed. Try again with a clearer photo.";
+                return;
+            }
+            idx++;
+            showDoc();
+        });
+
+        showDoc();
+    </script>
+</body>
+
+</html>

@@ -1,47 +1,32 @@
-import os
+# app/utils.py
 import qrcode
-import base64
 import io
-import json
-from cryptography.fernet import Fernet
-from .config import settings
+import base64
+from PIL import Image
+import os
+from dotenv import load_dotenv
 
-FILES_DIR = os.path.join(os.getcwd(), "files")
-if not os.path.exists(FILES_DIR):
-    os.makedirs(FILES_DIR, exist_ok=True)
-
-
-def get_fernet():
-    key = settings.FERNET_KEY
-    if not key:
-        # create key and store to file (first run)
-        key = Fernet.generate_key().decode()
-        # update environment variable file if present - but for simplicity we just set in settings object
-        settings.FERNET_KEY = key
-    # Fernet expects bytes
-    return Fernet(key.encode())
+load_dotenv()
+UPLOAD_DIR = os.getenv("UPLOAD_DIR", "./uploads")
 
 
-def encrypt_and_save_file(file_bytes: bytes, filename: str):
-    f = get_fernet()
-    token = f.encrypt(file_bytes)
-    safe_name = filename
-    path = os.path.join(FILES_DIR, safe_name + ".enc")
-    with open(path, "wb") as fh:
-        fh.write(token)
-    return path
-
-
-def decrypt_file_to_bytes(path: str):
-    f = get_fernet()
-    with open(path, "rb") as fh:
-        token = fh.read()
-    return f.decrypt(token)
-
-
-def generate_qr_base64(text: str):
-    img = qrcode.make(text)
+def generate_qr_dataurl(link: str) -> str:
+    qr = qrcode.QRCode(box_size=6, border=2)
+    qr.add_data(link)
+    qr.make(fit=True)
+    img = qr.make_image(fill_color="black", back_color="white").convert("RGB")
     buffered = io.BytesIO()
     img.save(buffered, format="PNG")
-    img_b64 = base64.b64encode(buffered.getvalue()).decode()
-    return "data:image/png;base64," + img_b64
+    img_bytes = buffered.getvalue()
+    b64 = base64.b64encode(img_bytes).decode()
+    return f"data:image/png;base64,{b64}"
+
+
+def save_upload_file(session_id: str, filename: str, fileobj, uploads_root: str = UPLOAD_DIR) -> str:
+    folder = os.path.join(uploads_root, session_id)
+    os.makedirs(folder, exist_ok=True)
+    safe_name = filename.replace("/", "_").replace("..", "")
+    path = os.path.join(folder, safe_name)
+    with open(path, "wb") as f:
+        f.write(fileobj.read())
+    return path

@@ -7,15 +7,15 @@ load_dotenv(dotenv_path=os.path.join(
 
 
 class Settings:
-    SECRET_KEY: str = os.getenv("SECRET_KEY", "changeme")
+    SECRET_KEY: str = os.getenv("SECRET_KEY", "Naveen")
     FERNET_KEY: str = os.getenv("FERNET_KEY", "")
     ACCESS_TOKEN_EXPIRE_MINUTES: int = int(
         os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "60"))
-    BASE_URL: str = os.getenv("BASE_URL", "http://127.0.0.1:8000")
+    BASE_URL: str = os.getenv("BASE_URL", "http://192.168.0.103:8000")
 
     # MySQL settings
     MYSQL_USER: str = os.getenv("MYSQL_USER", "root")
-    MYSQL_PASSWORD: str = os.getenv("MYSQL_PASSWORD", "")
+    MYSQL_PASSWORD: str = os.getenv("MYSQL_PASSWORD", "root123")
     MYSQL_HOST: str = os.getenv("MYSQL_HOST", "127.0.0.1")
     MYSQL_PORT: int = int(os.getenv("MYSQL_PORT", "3306"))
     MYSQL_DB: str = os.getenv("MYSQL_DB", "secure_docs_db")

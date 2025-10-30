@@ -1,72 +1,36 @@
 # app/crud.py
+import uuid
+import os
 from sqlalchemy.orm import Session
-from . import models
-import json
-from datetime import datetime, timedelta
-import secrets
+from app import models
+from app.database import UPLOAD_DIR
 
 
-def create_user(db: Session, email: str, hashed_password: str, full_name=None):
-    user = models.User(
-        email=email, hashed_password=hashed_password, full_name=full_name)
-    db.add(user)
+def create_upload_session(db: Session, verifier_name: str | None = None) -> models.UploadSession:
+    session_id = str(uuid.uuid4())
+    s = models.UploadSession(id=session_id, verifier_name=verifier_name)
+    db.add(s)
     db.commit()
-    db.refresh(user)
-    return user
+    db.refresh(s)
+    # ensure folder exists
+    os.makedirs(os.path.join(UPLOAD_DIR, session_id), exist_ok=True)
+    return s
 
 
-def get_user_by_email(db: Session, email: str):
-    return db.query(models.User).filter(models.User.email == email).first()
+def get_upload_session(db: Session, session_id: str):
+    return db.get(models.UploadSession, session_id)
 
 
-def get_user(db: Session, user_id: int):
-    return db.query(models.User).filter(models.User.id == user_id).first()
-
-
-def create_document(db: Session, user_id: int, doc_type: str, filename: str, storage_path: str):
-    doc = models.Document(user_id=user_id, doc_type=doc_type,
-                          filename=filename, storage_path=storage_path)
-    db.add(doc)
+def record_document_upload(db: Session, session_id: str, doc_type: str, filename: str, filepath: str, content_type: str):
+    du = models.DocumentUpload(session_id=session_id, doc_type=doc_type,
+                               filename=filename, filepath=filepath, content_type=content_type)
+    db.add(du)
     db.commit()
-    db.refresh(doc)
-    return doc
+    db.refresh(du)
+    return du
 
 
-def create_document_for_verification(db: Session, verification_id: int, doc_type: str, filename: str, storage_path: str):
-    doc = models.Document(verification_request_id=verification_id,
-                          doc_type=doc_type, filename=filename, storage_path=storage_path)
-    db.add(doc)
-    db.commit()
-    db.refresh(doc)
-    return doc
-
-
-def list_documents_for_user(db: Session, user_id: int):
-    return db.query(models.Document).filter(models.Document.user_id == user_id).all()
-
-
-def list_documents_for_verification(db: Session, verification_id: int):
-    return db.query(models.Document).filter(models.Document.verification_request_id == verification_id).all()
-
-
-def create_verification_request(db: Session, verifier_name: str, requested_fields):
-    token = secrets.token_urlsafe(16)
-    vr = models.VerificationRequest(token=token, verifier_name=verifier_name, requested_fields=json.dumps(requested_fields or []),
-                                    expires_at=(datetime.utcnow() + timedelta(hours=24)))
-    db.add(vr)
-    db.commit()
-    db.refresh(vr)
-    return vr
-
-
-def get_verification_by_token(db: Session, token: str):
-    return db.query(models.VerificationRequest).filter(models.VerificationRequest.token == token).first()
-
-
-def create_audit(db: Session, user_id, verification_id, action, details=None):
-    a = models.AuditLog(user_id=user_id, verification_request_id=verification_id,
-                        action=action, details=json.dumps(details or {}))
-    db.add(a)
-    db.commit()
-    db.refresh(a)
-    return a
+def list_uploads_for_session(db: Session, session_id: str):
+    q = db.query(models.DocumentUpload).filter(
+        models.DocumentUpload.session_id == session_id).all()
+    return q

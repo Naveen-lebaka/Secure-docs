@@ -1,5 +1,6 @@
 fastapi
 uvicorn[standard]
+Jinja2
 python-jose[cryptography]
 passlib[bcrypt]
 sqlalchemy
@@ -10,3 +11,4 @@ qrcode
 Pillow
 python-dotenv
 pymysql
+aiofiles

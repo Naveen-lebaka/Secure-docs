@@ -1,56 +1,29 @@
 # app/models.py
 from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Text
-from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
-from .database import Base
+from app.database import Base
+from sqlalchemy.orm import relationship
 
 
-class User(Base):
-    __tablename__ = "users"
-    id = Column(Integer, primary_key=True, index=True)
-    email = Column(String, unique=True, index=True, nullable=False)
-    full_name = Column(String, nullable=True)
-    hashed_password = Column(String, nullable=False)
+class UploadSession(Base):
+    __tablename__ = "upload_sessions"
+    id = Column(String(36), primary_key=True)  # uuid string
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+    status = Column(String(20), default="open")  # open / completed
+    verifier_name = Column(String(128), nullable=True)
 
-    documents = relationship("Document", back_populates="owner")
+    uploads = relationship("DocumentUpload", back_populates="session")
 
 
-class Document(Base):
-    __tablename__ = "documents"
+class DocumentUpload(Base):
+    __tablename__ = "document_uploads"
     id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
-    verification_request_id = Column(Integer, ForeignKey(
-        "verification_requests.id"), nullable=True)
-    # passport, aadhaar, idcard, etc.
-    doc_type = Column(String, nullable=False)
-    filename = Column(String, nullable=False)
-    storage_path = Column(String, nullable=False)  # encrypted file path
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    session_id = Column(String(36), ForeignKey("upload_sessions.id"))
+    doc_type = Column(String(64))  # e.g., 'aadhaar', 'passport'
+    filename = Column(String(256))
+    filepath = Column(String(512))
+    content_type = Column(String(64))
+    uploaded_at = Column(DateTime(timezone=True), server_default=func.now())
+    notes = Column(Text, nullable=True)
 
-    owner = relationship("User", back_populates="documents")
-    verification_request = relationship(
-        "VerificationRequest", back_populates="documents")
-
-
-class VerificationRequest(Base):
-    __tablename__ = "verification_requests"
-    id = Column(Integer, primary_key=True, index=True)
-    token = Column(String, unique=True, index=True, nullable=False)
-    verifier_name = Column(String, nullable=True)
-    # JSON string of required doc types
-    requested_fields = Column(Text, nullable=True)
-    expires_at = Column(DateTime, nullable=True)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-
-    documents = relationship("Document", back_populates="verification_request")
-
-
-class AuditLog(Base):
-    __tablename__ = "audit_logs"
-    id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, nullable=True)
-    verification_request_id = Column(Integer, nullable=True)
-    action = Column(String, nullable=False)
-    details = Column(Text, nullable=True)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    session = relationship("UploadSession", back_populates="uploads")

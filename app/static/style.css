@@ -1,0 +1,54 @@
+/* app/static/style.css */
+body {
+    font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+    background: linear-gradient(180deg, #f6f9ff, #ffffff);
+    padding: 24px;
+}
+
+.card {
+    max-width: 680px;
+    margin: 24px auto;
+    background: white;
+    border-radius: 14px;
+    box-shadow: 0 10px 30px rgba(33, 33, 33, 0.08);
+    padding: 22px;
+}
+
+.btn {
+    background: #2e6ef7;
+    color: white;
+    padding: 10px 14px;
+    border: none;
+    border-radius: 10px;
+    cursor: pointer;
+    font-weight: 600;
+}
+
+.btn:hover {
+    opacity: 0.95;
+}
+
+.qr-card {
+    margin-top: 12px;
+    padding: 12px;
+    border-radius: 8px;
+    background: #fafbff;
+    border: 1px solid #eef2ff;
+    display: inline-block;
+}
+
+#qrImg {
+    width: 210px;
+    height: 210px;
+    display: block;
+    margin-bottom: 8px;
+}
+
+ul {
+    padding-left: 18px;
+}
+
+#uploadedList li {
+    padding: 6px 0;
+    border-bottom: 1px dashed #eee;
+}

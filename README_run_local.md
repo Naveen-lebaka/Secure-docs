@@ -19,7 +19,7 @@
      BASE_URL=http://192.168.1.50:8000   # change to your laptop IP to test from phone
 
 5. Start the server:
-   uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+   uvicorn app.main:app --host 192.168.0.103 --port 8000 --reload
 
 6. Access from browser on laptop:
    http://127.0.0.1:8000/

@@ -1,0 +1,74 @@
+<!-- app/templates/index.html -->
+<!doctype html>
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <title>Doc Verify - Verifier</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+
+<body>
+    <div class="card">
+        <h1>Document Verification</h1>
+        <p>Documents to request from user:</p>
+        <ul id="doc-list">
+            <li>Aadhaar</li>
+            <li>PAN</li>
+            <li>Passport</li>
+            <li>Driving License</li>
+            <li>Voter ID</li>
+            <li>Education Certificate</li>
+        </ul>
+
+        <div style="margin-top:18px;">
+            <label>Verifier name (optional): <input id="verifierName" placeholder="Eg. John" /></label>
+        </div>
+
+        <button id="startBtn" class="btn">Upload through phone</button>
+
+        <div id="qrCard" class="qr-card" style="display:none;">
+            <p>Scan this QR with your phone to upload documents:</p>
+            <img id="qrImg" src="" alt="QR code" />
+            <p>Or open <span id="qrLink"></span></p>
+            <small>QR expires when you close this session.</small>
+        </div>
+
+        <div id="uploadsArea" style="display:none;">
+            <h3>Uploaded files</h3>
+            <ul id="uploadedList"></ul>
+        </div>
+    </div>
+
+    <script>
+        document.getElementById("startBtn").addEventListener("click", async () => {
+            const verifier = document.getElementById("verifierName").value || null;
+            const res = await fetch("/create_session", {
+                method: "POST",
+                headers: { "content-type": "application/json" },
+                body: JSON.stringify({ verifier_name: verifier })
+            });
+            const data = await res.json();
+            // data: {session_id, qr_dataurl, link}
+            document.getElementById("qrImg").src = data.qr_dataurl;
+            document.getElementById("qrLink").textContent = data.link;
+            document.getElementById("qrCard").style.display = "block";
+            document.getElementById("uploadsArea").style.display = "block";
+
+            // Poll for uploads every 3s
+            setInterval(async () => {
+                const r = await fetch("/session_uploads/" + data.session_id);
+                const j = await r.json();
+                const list = document.getElementById("uploadedList");
+                list.innerHTML = "";
+                j.forEach(u => {
+                    const li = document.createElement("li");
+                    li.textContent = `${u.doc_type} — ${u.filename} (${u.uploaded_at})`;
+                    list.appendChild(li);
+                });
+            }, 3000);
+        });
+    </script>
+</body>
+
+</html>

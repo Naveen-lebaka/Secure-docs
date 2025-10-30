@@ -1,178 +1,156 @@
 # app/main.py
 import os
-import json
-from fastapi import FastAPI, Depends, UploadFile, File, HTTPException, Form
-from fastapi.responses import HTMLResponse, StreamingResponse, JSONResponse
+import io
+from fastapi import FastAPI, Request, UploadFile, File, HTTPException, Depends
+from fastapi.responses import HTMLResponse, JSONResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
+from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
-from . import models, schemas, crud, utils
-from .database import SessionLocal, engine
-from .auth import get_password_hash, verify_password, create_access_token, get_current_user
-from .config import settings
-from datetime import timedelta
-from fastapi.security import OAuth2PasswordRequestForm
+from dotenv import load_dotenv
+from PIL import Image
 
-# create tables
-models.Base.metadata.create_all(bind=engine)
+from app import database, crud, utils
+from app.database import init_db, UPLOAD_DIR, get_db
 
-app = FastAPI(title="Secure Docs (local)")
+# Load environment variables
+load_dotenv()
 
-# Serve static files
-app.mount("/static", StaticFiles(directory="app/static"), name="static")
+BASE_URL = os.getenv("BASE_URL", "http://192.168.0.103:8000")
+
+# Initialize FastAPI app
+app = FastAPI(title="Secure Docs Upload API")
+
+# Mount static and templates
+app.mount(
+    "/static",
+    StaticFiles(directory=os.path.join(os.path.dirname(__file__), "static")),
+    name="static",
+)
+templates = Jinja2Templates(
+    directory=os.path.join(os.path.dirname(__file__), "templates")
+)
+
+# Ensure DB tables exist at startup
+init_db()
 
 
-def get_db():
-    try:
-        db = SessionLocal()
-        yield db
-    finally:
-        db.close()
-
+# ---------------------------
+#          ROUTES
+# ---------------------------
 
 @app.get("/", response_class=HTMLResponse)
-def index():
-    with open("app/static/index.html", "r", encoding="utf-8") as f:
-        return HTMLResponse(f.read())
-
-# ----- Auth (we keep register/login for optional laptop uploads if wanted) -----
+async def index(request: Request):
+    """Render the home page."""
+    return templates.TemplateResponse("index.html", {"request": request})
 
 
-@app.post("/api/auth/register")
-def register(user: schemas.UserCreate, db: Session = Depends(get_db)):
-    existing = crud.get_user_by_email(db, user.email)
-    if existing:
-        raise HTTPException(status_code=400, detail="Email already registered")
-    hashed = get_password_hash(user.password)
-    u = crud.create_user(db, email=user.email,
-                         hashed_password=hashed, full_name=user.full_name)
-    return {"id": u.id, "email": u.email, "full_name": u.full_name}
+@app.post("/create_session")
+async def create_session_endpoint(
+    payload: dict,
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    """Create a new upload session and return QR data."""
+    verifier_name = payload.get("verifier_name") if payload else None
+    s = crud.create_upload_session(db, verifier_name=verifier_name)
+
+    link = f"{BASE_URL}/upload/{s.id}"
+    qr_dataurl = utils.generate_qr_dataurl(link)
+
+    return {"session_id": s.id, "qr_dataurl": qr_dataurl, "link": link}
 
 
-@app.post("/api/auth/login")
-def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
-    user = crud.get_user_by_email(db, email=form_data.username)
-    if not user or not verify_password(form_data.password, user.hashed_password):
-        raise HTTPException(status_code=401, detail="Invalid credentials")
-    access_token = create_access_token(data={"sub": user.email}, expires_delta=timedelta(
-        minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES))
-    return {"access_token": access_token, "token_type": "bearer"}
+@app.get("/upload/{session_id}", response_class=HTMLResponse)
+async def upload_mobile_page(
+    request: Request,
+    session_id: str,
+    db: Session = Depends(get_db),
+):
+    """Render mobile upload page for the session."""
+    s = crud.get_upload_session(db, session_id)
+    if not s:
+        raise HTTPException(status_code=404, detail="Session not found")
 
-# ----- Laptop upload (optional; can be used unauthenticated too) -----
-
-
-@app.post("/api/documents")
-def upload_document(doc_type: str = Form(...), file: UploadFile = File(...), db: Session = Depends(get_db)):
-    # Note: no auth required for demo simplicity; in prod require auth.
-    content = file.file.read()
-    if not utils.is_image_clear(content):
-        return JSONResponse(status_code=400, content={"detail": "Please upload a clearer / larger image"})
-    path = utils.encrypt_and_save_file(content, file.filename)
-    doc = crud.create_document_for_verification(
-        db, verification_id=None, doc_type=doc_type, filename=file.filename, storage_path=path)
-    crud.create_audit(db, user_id=None, verification_id=None,
-                      action="uploaded_document_laptop", details={"doc_id": doc.id})
-    return {"status": "ok", "doc_id": doc.id}
+    return templates.TemplateResponse(
+        "upload_mobile.html", {"request": request, "session_id": session_id}
+    )
 
 
-@app.get("/api/documents")
-def list_docs(db: Session = Depends(get_db)):
-    docs = db.query(models.Document).all()
-    out = [{"id": d.id, "doc_type": d.doc_type, "filename": d.filename,
-            "created_at": d.created_at.isoformat()} for d in docs]
-    return out
-
-# ----- Create verification request (verifier on laptop) -----
-
-
-@app.post("/api/verification-requests")
-def create_verification(verifier_name: str = Form(None), requested_fields: str = Form("[]"), db: Session = Depends(get_db)):
-    req_fields = json.loads(requested_fields)
-    vr = crud.create_verification_request(
-        db, verifier_name=verifier_name, requested_fields=req_fields)
-    qr = utils.generate_qr_base64(settings.BASE_URL + f"/verify/{vr.token}")
-    return {"token": vr.token, "qr": qr, "link": settings.BASE_URL + f"/verify/{vr.token}"}
-
-# Desktop verify page
-
-
-@app.get("/verify/{token}", response_class=HTMLResponse)
-def verify_page(token: str, db: Session = Depends(get_db)):
-    vr = crud.get_verification_by_token(db, token=token)
-    if not vr:
-        return HTMLResponse("Invalid token", status_code=404)
-    with open("app/static/verify_desktop.html", "r", encoding="utf-8") as f:
-        html = f.read().replace("{{TOKEN}}", token)
-    return HTMLResponse(html)
-
-# Mobile-friendly verify page (same token)
-
-
-@app.get("/mobile/verify/{token}", response_class=HTMLResponse)
-def mobile_verify_page(token: str, db: Session = Depends(get_db)):
-    vr = crud.get_verification_by_token(db, token=token)
-    if not vr:
-        return HTMLResponse("Invalid token", status_code=404)
-    # serve mobile-friendly page
-    with open("app/static/verify_mobile.html", "r", encoding="utf-8") as f:
-        html = f.read().replace("{{TOKEN}}", token)
-    return HTMLResponse(html)
-
-# API: fetch verification meta
-
-
-@app.get("/api/verify/{token}")
-def get_verify_request(token: str, db: Session = Depends(get_db)):
-    vr = crud.get_verification_by_token(db, token=token)
-    if not vr:
-        raise HTTPException(status_code=404, detail="Invalid token")
-    return {"token": vr.token, "verifier_name": vr.verifier_name, "requested_fields": json.loads(vr.requested_fields)}
-
-# ----- PUBLIC mobile upload endpoint for token (no JWT) -----
-
-
-@app.post("/api/verify/{token}/upload")
-def mobile_upload(token: str, doc_type: str = Form(...), file: UploadFile = File(...), db: Session = Depends(get_db)):
-    vr = crud.get_verification_by_token(db, token=token)
-    if not vr:
-        raise HTTPException(status_code=404, detail="Invalid token")
-    content = file.file.read()
-    # clarity check
-    if not utils.is_image_clear(content):
-        return JSONResponse(status_code=400, content={"detail": "Please upload a clearer / larger image"})
-    path = utils.encrypt_and_save_file(content, file.filename)
-    doc = crud.create_document_for_verification(
-        db, verification_id=vr.id, doc_type=doc_type, filename=file.filename, storage_path=path)
-    crud.create_audit(db, user_id=None, verification_id=vr.id, action="mobile_uploaded", details={
-                      "doc_id": doc.id, "doc_type": doc_type})
-    return {"status": "ok", "doc_id": doc.id}
-
-# List uploaded docs for a token (for verifier to see)
-
-
-@app.get("/api/verification/{token}/documents")
-def list_verification_docs(token: str, db: Session = Depends(get_db)):
-    vr = crud.get_verification_by_token(db, token=token)
-    if not vr:
-        raise HTTPException(status_code=404, detail="Invalid token")
-    docs = crud.list_documents_for_verification(db, vr.id)
-    out = [{"id": d.id, "doc_type": d.doc_type, "filename": d.filename,
-            "created_at": d.created_at.isoformat()} for d in docs]
-    return out
-
-# Verifier download (no JWT but requires doc tied to token and that doc exists)
-
-
-@app.get("/api/verification/{token}/download/{doc_id}")
-def verifier_download(token: str, doc_id: int, db: Session = Depends(get_db)):
-    vr = crud.get_verification_by_token(db, token=token)
-    if not vr:
-        raise HTTPException(status_code=404, detail="Invalid token")
-    doc = db.query(models.Document).filter(models.Document.id == doc_id,
-                                           models.Document.verification_request_id == vr.id).first()
-    if not doc:
+@app.post("/upload_file/{session_id}")
+async def upload_file(
+    session_id: str,
+    file: UploadFile = File(...),
+    doc_type: str = None,
+    db: Session = Depends(get_db),
+):
+    """Handle file upload and validation."""
+    s = crud.get_upload_session(db, session_id)
+    if not s:
         raise HTTPException(
-            status_code=403, detail="This document is not available for this verification request")
-    data = utils.decrypt_file_to_bytes(doc.storage_path)
-    crud.create_audit(db, user_id=None, verification_id=vr.id,
-                      action="verifier_downloaded", details={"doc_id": doc_id})
-    return StreamingResponse(iter([data]), media_type="application/octet-stream", headers={"Content-Disposition": f"attachment; filename={doc.filename}"})
+            status_code=404, detail="Session expired or not found")
+
+    # Read and validate file
+    contents = await file.read()
+    if len(contents) > (8 * 1024 * 1024):  # 8 MB limit
+        raise HTTPException(
+            status_code=400, detail="File too large. Please use <8MB")
+
+    content_type = file.content_type or ""
+    if content_type.startswith("image/"):
+        try:
+            img = Image.open(io.BytesIO(contents))
+            w, h = img.size
+            if w < 500 or h < 400:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Image too small/unclear. Please capture a clearer photo",
+                )
+        except Exception:
+            raise HTTPException(status_code=400, detail="Invalid image file")
+
+    # Save file locally
+    local_path = utils.save_upload_file(
+        session_id, file.filename, io.BytesIO(contents))
+
+    # Record in DB
+    rec = crud.record_document_upload(
+        db,
+        session_id,
+        doc_type or "unknown",
+        file.filename,
+        local_path,
+        content_type,
+    )
+
+    return {
+        "status": "ok",
+        "id": rec.id,
+        "filename": rec.filename,
+        "uploaded_at": str(rec.uploaded_at),
+    }
+
+
+@app.get("/session_uploads/{session_id}")
+async def session_uploads(session_id: str, db: Session = Depends(get_db)):
+    """Fetch all uploads under a given session."""
+    rows = crud.list_uploads_for_session(db, session_id)
+    data = [
+        {
+            "id": r.id,
+            "doc_type": r.doc_type,
+            "filename": r.filename,
+            "uploaded_at": str(r.uploaded_at),
+        }
+        for r in rows
+    ]
+    return JSONResponse(data)
+
+
+@app.get("/uploads/{session_id}/{filename}")
+async def serve_uploaded(session_id: str, filename: str):
+    """Serve uploaded file for review."""
+    path = os.path.join(UPLOAD_DIR, session_id, filename)
+    if not os.path.exists(path):
+        raise HTTPException(status_code=404, detail="File not found")
+
+    return FileResponse(path)
