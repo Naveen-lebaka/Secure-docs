@@ -1,6 +1,5 @@
-<!-- app/templates/upload_mobile.html -->
 <!doctype html>
-<html>
+<html lang="en">
 
 <head>
     <meta charset="utf-8">
@@ -11,29 +10,67 @@
 
 <body>
     <div class="card">
-        <h2>Upload Documents</h2>
-        <p id="sessionInfo">Session: {{ session_id }}</p>
+        <h2>📤 Upload Documents</h2>
+        <p id="sessionInfo" class="small">Session: {{ session_id }}</p>
+
         <div id="loopArea">
-            <p id="docTitle"></p>
-            <input id="fileInput" type="file" accept="image/*,application/pdf" />
-            <div style="margin-top:10px;">
-                <button id="uploadBtn" class="btn">Upload</button>
+            <!-- Upload UI -->
+            <div class="file-tile">
+                <img id="sampleImg" class="sample-preview" src="/static/samples/placeholder.png"
+                    alt="Sample document preview" />
+                <div id="docTitle" style="font-weight:700; font-size:16px; margin-bottom:8px;"></div>
+                <div class="hint small">Tap below to take a photo or upload the document</div>
+
+                <input id="fileInput" class="file-input" type="file" accept="image/*,application/pdf" />
+                <label for="fileInput" id="fileLabel" class="upload-label">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden>
+                        <path d="M12 3v10" stroke="white" stroke-width="2" stroke-linecap="round"
+                            stroke-linejoin="round" />
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" stroke="white" stroke-width="2"
+                            stroke-linecap="round" stroke-linejoin="round" />
+                        <path d="M7 10l5-5 5 5" stroke="white" stroke-width="2" stroke-linecap="round"
+                            stroke-linejoin="round" />
+                    </svg>
+                    <span id="fileLabelText">Take Photo / Choose File</span>
+                </label>
+
+                <!-- Upload + Skip Buttons -->
+                <div style="margin-top:10px; display:flex; justify-content:center; gap:10px;">
+                    <button id="uploadBtn" class="btn secondary">Upload</button>
+                    <button id="skipBtn" class="btn outline">Skip</button>
+                </div>
+
+                <div id="msg"></div>
             </div>
-            <div id="msg" style="color:red;margin-top:8px;"></div>
         </div>
-        <div id="doneArea" style="display:none;">
-            <h3>All documents uploaded</h3>
-            <p>Thank you — verification will be processed.</p>
+
+        <div id="doneArea" style="display:none;text-align:center;">
+            <h3>✅ All documents uploaded</h3>
+            <p>Thank you — verification will be processed shortly.</p>
         </div>
     </div>
 
     <script>
         const sessionId = "{{ session_id }}";
-        const docs = ["Aadhaar", "PAN", "Passport", "Driving License", "Voter ID", "Education Certificate"];
+        const docs = ["Aadhaar", "PAN", "Passport", "Driving License", "Voter ID", "Education Certificate", "Photo"];
         let idx = 0;
+
+        const sampleMap = {
+            "Aadhaar": "/static/samples/aadhaar_sample.jpg",
+            "PAN": "/static/samples/pan_sample.jpg",
+            "Passport": "/static/samples/passport_sample.jpg",
+            "Driving License": "/static/samples/dl_sample.jpg",
+            "Voter ID": "/static/samples/voter_sample.jpg",
+            "Education Certificate": "/static/samples/education_sample.jpg",
+            "Photo": "/static/samples/photo_sample.jpg",
+            "default": "/static/samples/placeholder.jpg"
+        };
+
         const fileInput = document.getElementById("fileInput");
         const docTitle = document.getElementById("docTitle");
+        const sampleImg = document.getElementById("sampleImg");
         const msg = document.getElementById("msg");
+        const fileLabelText = document.getElementById("fileLabelText");
 
         function showDoc() {
             if (idx >= docs.length) {
@@ -41,23 +78,30 @@
                 document.getElementById("doneArea").style.display = "block";
                 return;
             }
-            docTitle.textContent = `Upload: ${docs[idx]}`;
-            // set to accept camera on mobile
+
+            const current = docs[idx];
+            docTitle.textContent = `Upload: ${current}`;
+            sampleImg.src = sampleMap[current] || sampleMap["default"];
+            sampleImg.alt = `${current} sample`;
+
+            // ✅ Allow both camera & file picker
             fileInput.setAttribute("accept", "image/*,application/pdf");
-            fileInput.setAttribute("capture", "environment");
+            fileInput.removeAttribute("capture");
+            fileLabelText.textContent = "Take Photo / Choose File";
+
             fileInput.value = "";
             msg.textContent = "";
         }
 
         document.getElementById("uploadBtn").addEventListener("click", async () => {
             if (!fileInput.files || !fileInput.files[0]) {
-                msg.textContent = "Please choose a file or take a photo.";
+                msg.textContent = "⚠️ Please choose a file or take a photo.";
                 return;
             }
+
             const file = fileInput.files[0];
-            // client-side checks (size)
-            if (file.size > 6 * 1024 * 1024) {
-                msg.textContent = "File too large (>6MB). Try smaller or crop photo.";
+            if (file.size > 8 * 1024 * 1024) {
+                msg.textContent = "⚠️ File too large (>8MB). Try a smaller file.";
                 return;
             }
 
@@ -65,12 +109,23 @@
             fd.append("file", file);
             fd.append("doc_type", docs[idx]);
 
-            const res = await fetch(`/upload_file/${sessionId}`, { method: "POST", body: fd });
-            const j = await res.json();
-            if (res.status !== 200) {
-                msg.textContent = j.detail || "Upload failed. Try again with a clearer photo.";
-                return;
+            try {
+                const res = await fetch(`/upload_file/${sessionId}`, { method: "POST", body: fd });
+                const j = await res.json();
+                if (!res.ok) {
+                    msg.textContent = j.detail || "❌ Upload failed. Try again.";
+                    return;
+                }
+                idx++;
+                showDoc();
+            } catch (err) {
+                msg.textContent = "⚠️ Network error. Please retry.";
+                console.error(err);
             }
+        });
+
+        // ✅ Skip button handler
+        document.getElementById("skipBtn").addEventListener("click", () => {
             idx++;
             showDoc();
         });
