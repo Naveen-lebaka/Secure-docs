@@ -7,41 +7,122 @@
     <title>Doc Verify - Verifier</title>
     <meta name="viewport" content="width=device-width,initial-scale=1">
     <link rel="stylesheet" href="/static/style.css">
+    <style>
+        /* --- Layout Tweaks for Centered QR --- */
+        .main-grid {
+            display: flex;
+            align-items: flex-start;
+            justify-content: center;
+            gap: 40px;
+            flex-wrap: wrap;
+            margin-top: 20px;
+        }
+
+        .left-section {
+            flex: 1 1 360px;
+            max-width: 400px;
+        }
+
+        .qr-wrapper {
+            flex: 0 1 280px;
+            display: none;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .qr-wrapper.show {
+            display: flex;
+            animation: floatUp .4s ease;
+        }
+
+        .qr-card {
+            margin: 0;
+            padding: 18px;
+            border-radius: 16px;
+            background: rgba(255, 255, 255, 0.95);
+            box-shadow: 0 12px 40px rgba(37, 99, 235, 0.1);
+            text-align: center;
+            transition: transform 0.25s ease;
+        }
+
+        .qr-card:hover {
+            transform: translateY(-4px);
+        }
+
+        #qrImg {
+            width: 220px;
+            height: 220px;
+            margin-bottom: 10px;
+            border-radius: 10px;
+        }
+
+        @media (max-width: 700px) {
+            .main-grid {
+                flex-direction: column;
+                align-items: center;
+            }
+
+            .left-section {
+                max-width: 92%;
+            }
+
+            .qr-wrapper {
+                width: 100%;
+                margin-top: 18px;
+            }
+
+            #qrImg {
+                width: 180px;
+                height: 180px;
+            }
+        }
+    </style>
 </head>
 
 <body>
     <div class="card">
-        <h1>📄 Document Verification</h1>
-        <p>Documents required from the user:</p>
-        <ul id="doc-list">
-            <li>Aadhaar</li>
-            <li>PAN</li>
-            <li>Passport</li>
-            <li>Driving License</li>
-            <li>Voter ID</li>
-            <li>Education Certificate</li>
-            <li>Photo</li>
-        </ul>
+        <h1 style="text-align:center; margin-bottom:20px;">📄 Document Verification</h1>
 
-        <div style="margin-top:18px;">
-            <label>Verifier name (optional):
-                <input id="verifierName" placeholder="Eg. John"
-                    style="margin-left:6px;padding:6px;border-radius:8px;border:1px solid #e5e7eb;">
-            </label>
-        </div>
+        <div class="main-grid">
+            <!-- Left Side: Documents and Controls -->
+            <div class="left-section">
+                <p>Documents required from the user:</p>
+                <ul id="doc-list">
+                    <li>Aadhaar</li>
+                    <li>PAN</li>
+                    <li>Passport</li>
+                    <li>Driving License</li>
+                    <li>Voter ID</li>
+                    <li>Education Certificate</li>
+                    <li>Photo</li>
+                </ul>
 
-        <button id="startBtn" class="btn" style="margin-top:14px;">📱 Upload through phone</button>
+                <div style="margin-top:18px;">
+                    <label>Verifier name (optional):
+                        <input id="verifierName" placeholder="Eg. John"
+                            style="margin-left:6px;padding:6px;border-radius:8px;border:1px solid #e5e7eb;">
+                    </label>
+                </div>
 
-        <div id="qrCard" class="qr-card" style="display:none; text-align:center;">
-            <p>Scan this QR with your phone to upload documents:</p>
-            <img id="qrImg" src="" alt="QR code" />
-            <p>Or open <span id="qrLink" style="font-weight:600;color:#2563eb;"></span></p>
-            <small>⚠️ QR expires when you close this session.</small>
-        </div>
+                <button id="startBtn" class="btn" style="margin-top:14px;">📱 Upload through phone</button>
 
-        <div id="uploadsArea" style="display:none;">
-            <h3 style="margin-top:18px;">Uploaded files</h3>
-            <ul id="uploadedList"></ul>
+                <div id="uploadsArea" style="display:none;margin-top:18px;">
+                    <h3>Uploaded files</h3>
+                    <ul id="uploadedList"></ul>
+                </div>
+            </div>
+
+            <!-- Center: QR Display -->
+            <div class="qr-wrapper" id="qrWrapper">
+                <div class="qr-card">
+                    <h3>📷 Scan to Upload</h3>
+                    <img id="qrImg" src="" alt="QR code" />
+                    <p style="margin-top:6px;">Or open: <br>
+                        <span id="qrLink" style="font-weight:600;color:#2563eb;word-break:break-all;"></span>
+                    </p>
+                    <small>⚠️ QR expires when you close this session.</small>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -54,10 +135,14 @@
                 body: JSON.stringify({ verifier_name: verifier })
             });
             const data = await res.json();
-            // data: {session_id, qr_dataurl, link}
+
+            // Show QR in center area
+            const qrWrapper = document.getElementById("qrWrapper");
             document.getElementById("qrImg").src = data.qr_dataurl;
             document.getElementById("qrLink").textContent = data.link;
-            document.getElementById("qrCard").style.display = "block";
+            qrWrapper.classList.add("show");
+
+            // Show uploaded list area
             document.getElementById("uploadsArea").style.display = "block";
 
             // Poll every 3 seconds for new uploads
