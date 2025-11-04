@@ -1,4 +1,5 @@
 🚀 Seamless Document Upload via Mobile
+
 📖 Project Story
 
 When I was applying for my passport, I needed to upload several documents — Aadhaar, PAN, certificates, and more.
@@ -36,6 +37,10 @@ Each bug fixed was a small victory that deepened my understanding of web develop
 
 📱 [Mobile Layout](Mobile_layout.jpg)
 
+🎥 See full Demo: 👉 https://youtu.be/wGcjhmcDBS0
+
+💻 Here’s my 𝑷𝒓𝒐𝒋𝒆𝒄𝒕 if you want to give it a try: 👉 https://www.linkedin.com/posts/naveen-kumar-lebaka_seamless-document-upload-via-mobile-activity-7390313030477123584-mSfA
+
 🌟 Highlights
 
 Simple and intuitive user flow
@@ -47,4 +52,5 @@ Built to solve a real-world problem
 🧑‍💻 Author
 
 Naveen Kumar Lebaka
-Aspiring Power BI & Python Developer
+
+Power BI & Python Developer
