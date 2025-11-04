@@ -33,9 +33,12 @@ Each bug fixed was a small victory that deepened my understanding of web develop
 
 💻 Screenshots
 
-🖥 [Laptop Layout](Laptop_Layout.png)
+Laptop_Layout
 
-📱 [Mobile Layout](Mobile_layout.jpg)
+![Laptop Layout](https://github.com/Naveen-lebaka/Secure-docs/blob/659ba0af1dba76cc4f83737c33c028a1d63e5bfe/Laptop_Layout.png)
+
+Mobile_layout
+![Mobile Layout](https://github.com/Naveen-lebaka/Secure-docs/blob/659ba0af1dba76cc4f83737c33c028a1d63e5bfe/Mobile_layout.jpg)
 
 🎥 See full Demo: 👉 https://youtu.be/wGcjhmcDBS0
 
