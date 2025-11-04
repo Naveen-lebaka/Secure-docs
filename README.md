@@ -38,6 +38,7 @@ Laptop_Layout
 ![Laptop Layout](https://github.com/Naveen-lebaka/Secure-docs/blob/659ba0af1dba76cc4f83737c33c028a1d63e5bfe/Laptop_Layout.png)
 
 Mobile_layout
+
 ![Mobile Layout](https://github.com/Naveen-lebaka/Secure-docs/blob/659ba0af1dba76cc4f83737c33c028a1d63e5bfe/Mobile_layout.jpg)
 
 🎥 See full Demo: 👉 https://youtu.be/wGcjhmcDBS0
